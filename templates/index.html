@@ -124,6 +124,19 @@
             cursor: pointer;
         }
 
+        #reset-round-btn {
+            background-color: #f8d7da; /* A light red */
+            border: 1px solid #f5c2c7;
+            color: #721c24;
+            padding: 5px 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        #reset-round-btn:hover {
+            background-color: #f5c2c7;
+        }
+
     </style>
 </head>
 <body>
@@ -142,6 +155,8 @@
         <button id="start-game-btn">Start Game</button>
         
         <div id="game-board-view" class="hidden">
+            <button id="reset-round-btn">Reset Current Round</button>
+
             <div id="mistake-notice"></div>
         
             <h3>Previous numbers:</h3>
@@ -202,6 +217,8 @@
         const waitingView = document.getElementById('waiting-view');
         const numberInput = document.getElementById('number-input');
         const submitInputBtn = document.getElementById('submit-input-btn');
+
+        const resetRoundBtn = document.getElementById('reset-round-btn');
                 
         createBtn.addEventListener('click', () => { socket.emit('create_room'); });
         joinBtn.addEventListener('click', () => {
@@ -322,6 +339,14 @@
             gameStatusText.textContent = `Congrats, you two were very impressive!!! Thank you for Playing :)`;
             nextRoundBtn.classList.add('hidden');
             handDiv.innerHTML = '';
+        });
+
+        resetRoundBtn.addEventListener('click', () => {
+            // Add a confirmation to prevent accidental clicks
+            if (confirm('Are you sure you want to reset this round? All progress for this round will be lost.')) {
+                console.log('Emitting reset_round');
+                socket.emit('reset_round');
+            }
         });
 
         function renderHand(handArray) {
