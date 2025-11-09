@@ -137,6 +137,23 @@
             background-color: #f5c2c7;
         }
 
+        #countdown-overlay.hidden {
+            display: none;
+        }
+
+        #countdown-content {
+            background: #fff;
+            padding: 30px 50px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        #countdown-timer {
+            font-size: 4em;
+            font-weight: bold;
+            color: #007BFF;
+            line-height: 1;
+        }
     </style>
 </head>
 <body>
@@ -151,7 +168,7 @@
     </div>
 
     <div id="game-view" class="hidden">
-        <h2 id="game-status-text">Opponent has joined!</h2>
+        <h2 id="game-status-text">Partner has joined!</h2>
         <button id="start-game-btn">Start Game</button>
         
         <div id="game-board-view" class="hidden">
@@ -182,9 +199,16 @@
 
             <div id="waiting-view" class="hidden">
                 <h2>You played a number!</h2>
-                <p>Waiting for your opponent to submit their input...</p>
+                <p>Waiting for your partner to submit their input...</p>
             </div>
 
+        </div>
+    </div>
+
+    <div id="countdown-overlay" class="modal-overlay hidden">
+        <div id="countdown-content">
+            <h2 id="countdown-message"></h2>
+            <div id="countdown-timer">3</div>
         </div>
     </div>
 
@@ -219,6 +243,10 @@
         const submitInputBtn = document.getElementById('submit-input-btn');
 
         const resetRoundBtn = document.getElementById('reset-round-btn');
+
+        const countdownOverlay = document.getElementById('countdown-overlay');
+        const countdownMessage = document.getElementById('countdown-message');
+        const countdownTimer = document.getElementById('countdown-timer');
                 
         createBtn.addEventListener('click', () => { socket.emit('create_room'); });
         joinBtn.addEventListener('click', () => {
@@ -252,7 +280,7 @@
         // --- Listen for server events ---
         socket.on('room_created', (msg) => {
             roomCodeDisplay.textContent = `Room Code: ${msg.room_code}`;
-            statusMessage.textContent = 'Waiting for opponent to join...';
+            statusMessage.textContent = 'Waiting for partner to join...';
             createBtn.disabled = true;
             joinBtn.disabled = true;
         });
@@ -265,30 +293,50 @@
         socket.on('game_started', (msg) => {
             console.log('Game started!', msg);
             
+            // 1. Get all the data from the server
+            const hand = msg.hand;
+            const board = msg.board;
+
+            // 2. Update all the *non-game* UI immediately
             startGameBtn.classList.add('hidden');
             nextRoundBtn.classList.add('hidden');
             inputModalOverlay.classList.add('hidden');
-
-            gameStatusText.textContent = `Set ${msg.set} - Round ${msg.round}`;
+            gameStatusText.textContent = `Set ${msg.set} - Round ${msg.round} in Progress!`;
             gameBoardView.classList.remove('hidden');
+            
+            // 3. Define the function to run *after* the countdown
+            const onCountdownComplete = () => {
+                renderHand(hand);
+                renderBoard(board);
+            };
 
+            // 4. Start the countdown
             if (msg.set === 1) {
-                document.body.style.backgroundColor = '#92dce7';
+                document.body.style.backgroundColor = '#ffffff';
             } else {
-                document.body.style.backgroundColor = '#fadeae';
+                document.body.style.backgroundColor = '#f0f5ff';
             }
-
-            renderHand(msg.hand);
-            renderBoard(msg.board);
+            startCountdown(`Round ${msg.round} starts in...`, onCountdownComplete);
         });
                 
         socket.on('game_state_update', (msg) => {
             console.log('Game state update received:', msg);
 
+            // 1. Get the data
+            const hand = msg.hand;
+            const board = msg.board;
+            
+            // 2. Hide the input modal immediately
             inputModalOverlay.classList.add('hidden');
 
-            renderHand(msg.hand);
-            renderBoard(msg.board);
+            // 3. Define the function to run *after* the countdown
+            const onCountdownComplete = () => {
+                renderHand(hand);
+                renderBoard(board);
+            };
+
+            // 4. Start the countdown
+            startCountdown('Game resumes in...', onCountdownComplete);
         });
         
         socket.on('mistake_notice', (msg) => {
@@ -315,14 +363,14 @@
             
             const promptMessage = document.getElementById('input-prompt-message');
             if (msg.set === 1) {
-                promptMessage.textContent = 'How close were you to playing? (1=not at close, 10=literally already moving your finger to press the button)';
+                promptMessage.textContent = 'How close were you to playing? (1=not at all close, 10=literally already moving your finger to press the button)';
             } else {
                 promptMessage.textContent = 'What number have you counted to?';
             }
         });
 
         socket.on('wait_for_input', () => {
-            console.log('We played, now waiting for opponent.');
+            console.log('We played, now waiting for partner.');
             inputModalOverlay.classList.remove('hidden');
             inputView.classList.add('hidden');
             waitingView.classList.remove('hidden');
@@ -381,6 +429,26 @@
                 }
             }
         }
+
+        function startCountdown(message, onComplete) {
+            // Show the overlay
+            countdownMessage.textContent = message;
+            countdownOverlay.classList.remove('hidden');
+            
+            let count = 3;
+            countdownTimer.textContent = count;
+
+            const interval = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    countdownTimer.textContent = count;
+                } else {
+                    clearInterval(interval);
+                    countdownOverlay.classList.add('hidden');
+                    onComplete(); // Run the function we passed in
+                }
+            }, 1000); // Run every 1 second
+        }
     </script>
     <div>
         <h1>Instructions:</h1>
@@ -396,6 +464,8 @@
             There is no "correct" speed to cound at, but you should try to match your partner. 
             Again, after each time your partner plays a number, you will be asked to provide some information.
             This time, type in the number you had counted to up to that point.
+            Use the "Reset round" button **ONLY** if you think you are soft locked.
+            With great power comes great responsiblity...
         </p>
         <h3>Good luck!!!</h3>
     </div>
