@@ -374,6 +374,67 @@ def handle_submit_input(data):
                 'round': state['round_number'],
                 'mistakes': state['mistake_count']
             }, room=room_code)
+    
+@socketio.on('reset_round')
+def handle_reset_round():
+    """
+    A client clicked 'Reset Round', likely due to a soft lock.
+    This re-deals the hands and resets the board for the *current* round.
+    """
+    sid = request.sid
+    room_code = get_room_code_for_sid(sid)
+    
+    if not room_code:
+        print(f"Error: Player {sid} not in a room.")
+        return
+        
+    room = game_rooms[room_code]
+    state = room['game_state']
+    
+    # --- 1. Get Current Round/Set (DO NOT INCREMENT) ---
+    current_round_num = state['round_number']
+    current_set_num = state['set_number']
+    
+    print(f"RESETTING round {current_round_num} in room {room_code}.")
+
+    # --- 2. Generate New Game State ---
+    player1_sid = room['players'][0]
+    player2_sid = room['players'][1]
+    
+    all_numbers = random.sample(range(0, 101), 10)
+    hand1 = sorted(all_numbers[:5])
+    hand2 = sorted(all_numbers[5:])
+    
+    # Reset the round-specific state
+    # Note: We DO NOT touch 'game_data_buffer'
+    state['mistake_count'] = 0
+    state['game_status'] = 'running'
+    state['play_start_time'] = time.time()
+    state['all_played_list'] = []
+    state['hands'] = {
+        player1_sid: hand1,
+        player2_sid: hand2
+    }
+    state['pending_inputs'] = {}
+    
+    # --- 3. Emit `game_started` ---
+    # We re-use this event! The client already knows
+    # how to handle it: it will clear the board and show
+    # the new hands.
+    
+    emit('game_started', {
+        'hand': hand1,
+        'board': [],
+        'round': current_round_num,
+        'set': current_set_num
+    }, room=player1_sid)
+    
+    emit('game_started', {
+        'hand': hand2,
+        'board': [],
+        'round': current_round_num,
+        'set': current_set_num
+    }, room=player2_sid)
 
 @app.route('/admin/export/<secret_key>')
 def export_data(secret_key):
