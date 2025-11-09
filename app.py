@@ -10,7 +10,8 @@ from io import StringIO
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-for-testing!'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///game_data.db'
+DB_PATH = '/var/data/game_data.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
 
 socketio = SocketIO(app)
 db = SQLAlchemy(app)
@@ -411,11 +412,3 @@ def export_data(secret_key):
         mimetype="text/csv",
         headers={"Content-disposition":
                  "attachment; filename=game_export.csv"})
-
-if __name__ == '__main__':
-    # --- ADD THIS BLOCK ---
-    with app.app_context():
-        db.create_all()
-    # ----------------------
-    print("Starting Flask-SocketIO server on http://0.0.0.0:5000")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
