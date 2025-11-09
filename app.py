@@ -6,12 +6,12 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_sqlalchemy import SQLAlchemy 
 import csv 
 from io import StringIO 
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-for-testing!'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-DB_PATH = '/var/data/game_data.db'
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 
 socketio = SocketIO(app)
 db = SQLAlchemy(app)
