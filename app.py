@@ -186,8 +186,8 @@ def handle_start_next_round():
     # Reset the round-specific state
     state['round_number'] = new_round_num
     state['set_number'] = new_set_num
-    state['mistake_count'] = 0,
-    state['play_start_time'] = time.time(),
+    state['mistake_count'] = 0
+    state['play_start_time'] = time.time()
     state['game_status'] = 'running'
     state['all_played_list'] = []
     state['hands'] = {
