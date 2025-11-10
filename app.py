@@ -62,9 +62,8 @@ def handle_disconnect():
     if room_code and room_code in game_rooms:
         room = game_rooms[room_code]
 
-        if len(room['players']) == 1:
-            game_rooms.pop(room_code, None)
-            print(f"Room {room_code} cleaned up due to disconnect.")
+        game_rooms.pop(room_code, None)
+        print(f"Room {room_code} cleaned up due to disconnect.")
 
 @socketio.on('create_room')
 def handle_create_room():
