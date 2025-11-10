@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Game Waiting Room</title>
+    <title>Coordination Game</title>
     <style>
         body { font-family: sans-serif; text-align: center; margin-top: 50px; }
         .hidden { display: none;}
@@ -124,19 +124,6 @@
             cursor: pointer;
         }
 
-        #reset-round-btn {
-            background-color: #f8d7da; /* A light red */
-            border: 1px solid #f5c2c7;
-            color: #721c24;
-            padding: 5px 10px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-        #reset-round-btn:hover {
-            background-color: #f5c2c7;
-        }
-
         #countdown-overlay.hidden {
             display: none;
         }
@@ -172,8 +159,6 @@
         <button id="start-game-btn">Start Game</button>
         
         <div id="game-board-view" class="hidden">
-            <button id="reset-round-btn">Reset Current Round</button>
-
             <div id="mistake-notice"></div>
         
             <h3>Previous numbers:</h3>
@@ -241,8 +226,6 @@
         const waitingView = document.getElementById('waiting-view');
         const numberInput = document.getElementById('number-input');
         const submitInputBtn = document.getElementById('submit-input-btn');
-
-        const resetRoundBtn = document.getElementById('reset-round-btn');
 
         const countdownOverlay = document.getElementById('countdown-overlay');
         const countdownMessage = document.getElementById('countdown-message');
@@ -389,14 +372,6 @@
             handDiv.innerHTML = '';
         });
 
-        resetRoundBtn.addEventListener('click', () => {
-            // Add a confirmation to prevent accidental clicks
-            if (confirm('Are you sure you want to reset this round? All progress for this round will be lost.')) {
-                console.log('Emitting reset_round');
-                socket.emit('reset_round');
-            }
-        });
-
         function renderHand(handArray) {
             handDiv.innerHTML = ''; // Clear the hand
             for (const number of handArray) {
@@ -464,8 +439,6 @@
             There is no "correct" speed to cound at, but you should try to match your partner. 
             Again, after each time your partner plays a number, you will be asked to provide some information.
             This time, type in the number you had counted to up to that point.
-            Use the "Reset round" button **ONLY** if you think you are soft locked.
-            With great power comes great responsiblity...
         </p>
         <h3>Good luck!!!</h3>
     </div>
