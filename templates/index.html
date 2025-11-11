@@ -81,7 +81,7 @@
             color: red;
             font-weight: bold;
             font-size: 1.2em;
-            height: 1.5em; /* Reserve space so it doesn't jump */
+            height: 1.5em;
         }
 
         #next-round-btn {
@@ -92,7 +92,7 @@
         }
 
         .modal-overlay {
-            position: fixed; /* Sit on top of the page */
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
@@ -282,8 +282,6 @@
             }
         });
 
-
-        // --- Listen for server events ---
         socket.on('room_created', (data) => {
             roomCodeDisplay.textContent = `Room Code: ${data.room_code}`;
             statusMessage.textContent = 'Waiting for partner to join...';
@@ -347,7 +345,6 @@
         socket.on('mistake_notice', (data) => {
             console.log('Mistake notice:', data);
             mistakeNotice.textContent = `Oh no! ${data.value} was played, but ${data.correct_value} was next :(`;
-            // Clear the message after 3 seconds
             setTimeout(() => {
                 mistakeNotice.textContent = '';
             }, 3000);
@@ -428,7 +425,6 @@
         }
 
         function startCountdown(message, onComplete) {
-            // Show the overlay
             countdownMessage.textContent = message;
             countdownOverlay.classList.remove('hidden');
             
@@ -451,18 +447,18 @@
         <h1>Instructions:</h1>
         <p>Create or join a room to play with a partner</p>
         <p>This is a test of how in sync you are with your partner.
-            Your task is to determine when to play each your 5 numbered cards (ranging from 1 to 100) in such a way that between the two of you, your cards are played in order from lowest to highest.
+            Your task is to determine when to play each of your 5 numbered cards (ranging from 1 to 100) in such a way that between the two of you, your cards are played in order from lowest to highest.
             The only problem is there is no communication of any kind allowed.
             The game will be played in two "sets" of 5 rounds each.
             In the first set (rounds 1-5), go based on vibes. Play your cards when it feels right.
-            After each card your oponent plays, you will be asked to rank how close you were to playing your next card between 1 (not close at all) and 10 (just about to play).
+            After each card your partner plays, you will be asked to rank how close you were to playing your next card between 1 (not close at all) and 10 (just about to play).
             Don't worry if you mess one up every so often, it's part of the game! Just continue from where you left off.
             In the second set (rounds 6-10), try to count in your head. When you reach a number in your hand, play it.
-            There is no "correct" speed to cound at, but you should try to match your partner. 
+            There is no "correct" speed to count at, but you should try to match your partner. 
             Again, after each time your partner plays a number, you will be asked to provide some information.
             This time, type in the number you had counted to up to that point.
             Use the "Reset round" button **ONLY** if you think you are soft locked.
-            With great power comes great responsiblity...
+            With great power comes great responsibility...
         </p>
         <h3>Good luck!!!</h3>
     </div>
