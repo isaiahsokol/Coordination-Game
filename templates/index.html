@@ -124,6 +124,19 @@
             cursor: pointer;
         }
 
+        #reset-round-btn {
+            background-color: #f8d7da; /* A light red */
+            border: 1px solid #f5c2c7;
+            color: #721c24;
+            padding: 5px 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        #reset-round-btn:hover {
+            background-color: #f5c2c7;
+        }
+
         #countdown-overlay.hidden {
             display: none;
         }
@@ -159,6 +172,8 @@
         <button id="start-game-btn">Start Game</button>
         
         <div id="game-board-view" class="hidden">
+            <button id="reset-round-btn">Reset Current Round</button>
+
             <div id="mistake-notice"></div>
         
             <h3>Previous numbers:</h3>
@@ -202,7 +217,6 @@
     <script type="text/javascript">
         const socket = io();
 
-        // ---Login View Elements ---
         const loginView = document.getElementById('login-view');
         const gameView = document.getElementById('game-view');
         const createBtn = document.getElementById('create-btn');
@@ -211,7 +225,6 @@
         const roomCodeDisplay = document.getElementById('room-code-display');
         const statusMessage = document.getElementById('status-message');
 
-        // --- Game View Elements ---
         const gameStatusText = document.getElementById('game-status-text');
         const startGameBtn = document.getElementById('start-game-btn');
         const gameBoardView = document.getElementById('game-board-view');
@@ -227,6 +240,8 @@
         const numberInput = document.getElementById('number-input');
         const submitInputBtn = document.getElementById('submit-input-btn');
 
+        const resetRoundBtn = document.getElementById('reset-round-btn');
+
         const countdownOverlay = document.getElementById('countdown-overlay');
         const countdownMessage = document.getElementById('countdown-message');
         const countdownTimer = document.getElementById('countdown-timer');
@@ -237,14 +252,14 @@
             if (code) { socket.emit('join_room', { 'room_code': code }); }
         });
         startGameBtn.addEventListener('click', () => {
-            socket.emit('start_game');
+            socket.emit('start_round');
             startGameBtn.classList.add('hidden');
             gameStatusText.textContent = "Waiting for server...";
         });
 
         nextRoundBtn.addEventListener('click', () => {
             nextRoundBtn.classList.add('hidden');
-            socket.emit('start_next_round');
+            socket.emit('start_round');
             gameStatusText.textContent = "Loading next round...";
         });
 
@@ -260,9 +275,17 @@
             socket.emit('submit_input', { 'input_data': data });
         });
 
+        resetRoundBtn.addEventListener('click', () => {
+            if (confirm('Do you really think you are soft locked, or are you just trying to cheat?')) {
+                console.log('Emitting reset_round');
+                socket.emit('reset_round');
+            }
+        });
+
+
         // --- Listen for server events ---
-        socket.on('room_created', (msg) => {
-            roomCodeDisplay.textContent = `Room Code: ${msg.room_code}`;
+        socket.on('room_created', (data) => {
+            roomCodeDisplay.textContent = `Room Code: ${data.room_code}`;
             statusMessage.textContent = 'Waiting for partner to join...';
             createBtn.disabled = true;
             joinBtn.disabled = true;
@@ -273,70 +296,69 @@
             gameView.classList.remove('hidden');
         });
         
-        socket.on('game_started', (msg) => {
-            console.log('Game started!', msg);
+        socket.on('game_started', (data) => {
+            console.log('Game started!', data);
             
-            // 1. Get all the data from the server
-            const hand = msg.hand;
-            const board = msg.board;
+            const hand = data.hand;
+            const board = data.board;
 
-            // 2. Update all the *non-game* UI immediately
             startGameBtn.classList.add('hidden');
             nextRoundBtn.classList.add('hidden');
             inputModalOverlay.classList.add('hidden');
-            gameStatusText.textContent = `Set ${msg.set} - Round ${msg.round} in Progress!`;
+            gameStatusText.textContent = `Set ${data.set} - Round ${data.round} in Progress!`;
             gameBoardView.classList.remove('hidden');
             
-            // 3. Define the function to run *after* the countdown
             const onCountdownComplete = () => {
                 renderHand(hand);
                 renderBoard(board);
             };
 
-            // 4. Start the countdown
-            if (msg.set === 1) {
-                document.body.style.backgroundColor = '#59bcd3';
+            if (data.set === 1) {
+                document.body.style.backgroundColor = '#9bd8e2';
             } else {
-                document.body.style.backgroundColor = '#fadca2';
+                document.body.style.backgroundColor = '#fde1a6';
             }
-            startCountdown(`Round ${msg.round} starts in...`, onCountdownComplete);
+            startCountdown(`Round ${data.round} starts in...`, onCountdownComplete);
         });
                 
-        socket.on('game_state_update', (msg) => {
-            console.log('Game state update received:', msg);
+        socket.on('game_state_update', (data) => {
+            console.log('Game state update received:', data);
 
-            // 1. Get the data
-            const hand = msg.hand;
-            const board = msg.board;
-            
-            // 2. Hide the input modal immediately
-            inputModalOverlay.classList.add('hidden');
+            const hand = data.hand;
+            const board = data.board;
 
-            // 3. Define the function to run *after* the countdown
-            const onCountdownComplete = () => {
+            if (data.start_counter == true) {
+                inputModalOverlay.classList.add('hidden');
+
+                const onCountdownComplete = () => {
+                    renderHand(hand);
+                    renderBoard(board);
+                };
+                startCountdown('Game resumes in...', onCountdownComplete);
+            }
+            else {
+                inputModalOverlay.classList.add('hidden');
                 renderHand(hand);
                 renderBoard(board);
-            };
-
-            // 4. Start the countdown
-            startCountdown('Game resumes in...', onCountdownComplete);
+            }
+                
         });
         
-        socket.on('mistake_notice', (msg) => {
-            console.log('Mistake notice:', msg);
-            mistakeNotice.textContent = `Oh no! ${msg.value} was played, but ${msg.correct_value} was next :(`;
+        socket.on('mistake_notice', (data) => {
+            console.log('Mistake notice:', data);
+            mistakeNotice.textContent = `Oh no! ${data.value} was played, but ${data.correct_value} was next :(`;
             // Clear the message after 3 seconds
             setTimeout(() => {
                 mistakeNotice.textContent = '';
             }, 3000);
         });
 
-        socket.on('error_message', (msg) => {
-            statusMessage.textContent = msg.message;
+        socket.on('error_message', (data) => {
+            statusMessage.textContent = data.message;
             statusMessage.style.color = 'red';
         });
 
-        socket.on('request_input', (msg) => {
+        socket.on('request_input', (data) => {
             console.log('Server is requesting input.');
             inputModalOverlay.classList.remove('hidden');
             inputView.classList.remove('hidden');
@@ -345,7 +367,7 @@
             submitInputBtn.disabled = false;
             
             const promptMessage = document.getElementById('input-prompt-message');
-            if (msg.set === 1) {
+            if (data.set === 1) {
                 promptMessage.textContent = 'How close were you to playing? (1=not at all close, 10=literally already moving your finger to press the button)';
             } else {
                 promptMessage.textContent = 'What number have you counted to?';
@@ -359,21 +381,21 @@
             waitingView.classList.remove('hidden');
         });
 
-        socket.on('round_over', (msg) => {
-            console.log('Round over:', msg);
-            gameStatusText.textContent = `Round ${msg.round} finished with ${msg.mistakes} mistakes.`;
+        socket.on('round_over', (data) => {
+            console.log('Round over:', data);
+            gameStatusText.textContent = `Round ${data.round} finished with ${data.mistakes} mistakes.`;
             nextRoundBtn.classList.remove('hidden');
         });
 
-        socket.on('game_over', (msg) => {
-            console.log('Game over:', msg);
+        socket.on('game_over', (data) => {
+            console.log('Game over:', data);
             gameStatusText.textContent = `Congrats, you two were very impressive!!! Thank you for Playing :)`;
             nextRoundBtn.classList.add('hidden');
             handDiv.innerHTML = '';
         });
 
         function renderHand(handArray) {
-            handDiv.innerHTML = ''; // Clear the hand
+            handDiv.innerHTML = '';
             for (const number of handArray) {
                 const cardButton = document.createElement('button');
                 cardButton.textContent = number;
@@ -420,9 +442,9 @@
                 } else {
                     clearInterval(interval);
                     countdownOverlay.classList.add('hidden');
-                    onComplete(); // Run the function we passed in
+                    onComplete();
                 }
-            }, 1000); // Run every 1 second
+            }, 1000);
         }
     </script>
     <div>
@@ -439,6 +461,8 @@
             There is no "correct" speed to cound at, but you should try to match your partner. 
             Again, after each time your partner plays a number, you will be asked to provide some information.
             This time, type in the number you had counted to up to that point.
+            Use the "Reset round" button **ONLY** if you think you are soft locked.
+            With great power comes great responsiblity...
         </p>
         <h3>Good luck!!!</h3>
     </div>
