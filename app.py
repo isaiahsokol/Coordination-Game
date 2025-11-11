@@ -20,12 +20,12 @@ class Play(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     game_session_id = db.Column(db.String(50), nullable=False, index=True)
-
+    
     round_number = db.Column(db.Integer, nullable=False)
     set_number = db.Column(db.Integer, nullable=False)
-
+    
     play_number_in_round = db.Column(db.Integer, nullable=False)
-    player_sid = db.Column(db.String(100)) # The player who *played* the card
+    player_sid = db.Column(db.String(100))
     value_played = db.Column(db.Integer, nullable=False)
     time_since_previous = db.Column(db.Float, nullable=False)
     was_mistake = db.Column(db.Boolean, nullable=False)
@@ -63,6 +63,7 @@ def handle_disconnect():
         room = game_rooms[room_code]
         
         leave_room(room_code)
+        # Tell the *other* player their opponent left
         for player_sid in room['players']:
             if player_sid != request.sid:
                 emit('opponent_disconnected', room=player_sid)
@@ -158,6 +159,7 @@ def start_new_round(room_code, round_num):
     
     print(f"Starting round {round_num} (Set {set_num}) in room {room_code}.")
 
+    # --- 3. Emit `game_started` to both players ---
     emit('game_started', {
         'hand': hand1,
         'board': [],
@@ -209,7 +211,6 @@ def handle_play_number(data):
                 play_obvious_card(card, observer_sid)
         
         for card in sorted(actor_hand, reverse = True):
-            print(actor_hand)
             if card < value:
                 play_obvious_card(card, actor_sid)
 
@@ -281,6 +282,7 @@ def play_obvious_card(value, player_sid):
             'start_counter': False
         }, room=player)
 
+
 @socketio.on('submit_input')
 def handle_submit_input(data):
     observer_sid = request.sid
@@ -315,10 +317,13 @@ def handle_submit_input(data):
     print(f"--- Data Buffered (Play {len(state['game_data_buffer'])}/100) ---")
     print(f"  Room: {room_code}, Round: {state['round_number']}")
     print(f"---------------------------------")
+    # --- 3. Resume Game and Broadcast Update ---
     
     state['game_status'] = 'running'
     state['play_start_time'] = time.time()
     
+
+    # --- 4. Check for Round/Game End ---
     if len(state['all_played_list']) >= 10:
         print(f"Round {state['round_number']} over for room {room_code}.")
 
@@ -333,10 +338,13 @@ def handle_submit_input(data):
             print(f"GAME OVER for room {room_code}. Committing data.")
             
             try:
+                # Get all 100 plays from the buffer
                 all_plays_to_save = state['game_data_buffer']
-
+                
+                # Add them all to the session at once
                 db.session.add_all(all_plays_to_save)
-
+                
+                # Commit the transaction
                 db.session.commit()
                 print(f"--- BATCH DATABASE SAVE SUCCESS ({len(all_plays_to_save)} plays) ---")
             
@@ -352,6 +360,7 @@ def handle_submit_input(data):
             game_rooms.pop(room_code, None)
 
         else:
+            # (This is the Round Over block)
             emit('round_over', {
                 'round': state['round_number'],
                 'mistakes': state['mistake_count']
@@ -366,6 +375,10 @@ def handle_submit_input(data):
             }, room=player_sid)
 @socketio.on('reset_round')
 def handle_reset_round():
+    """
+    A client clicked 'Reset Round', likely due to a soft lock.
+    This re-deals the hands and resets the board for the *current* round.
+    """
     sid = request.sid
     room_code = get_room_code_for_sid(sid)
     
@@ -375,19 +388,23 @@ def handle_reset_round():
         
     room = game_rooms[room_code]
     state = room['game_state']
-
+    
+    # --- 1. Get Current Round/Set (DO NOT INCREMENT) ---
     current_round_num = state['round_number']
     current_set_num = state['set_number']
     
     print(f"RESETTING round {current_round_num} in room {room_code}.")
 
+    # --- 2. Generate New Game State ---
     player1_sid = room['players'][0]
     player2_sid = room['players'][1]
     
     all_numbers = random.sample(range(0, 101), 10)
     hand1 = sorted(all_numbers[:5])
     hand2 = sorted(all_numbers[5:])
-
+    
+    # Reset the round-specific state
+    # Note: We DO NOT touch 'game_data_buffer'
     state['mistake_count'] = 0
     state['game_status'] = 'running'
     state['play_start_time'] = time.time()
@@ -397,7 +414,12 @@ def handle_reset_round():
         player2_sid: hand2
     }
     state['pending_inputs'] = {}
-
+    
+    # --- 3. Emit `game_started` ---
+    # We re-use this event! The client already knows
+    # how to handle it: it will clear the board and show
+    # the new hands.
+    
     emit('game_started', {
         'hand': hand1,
         'board': [],
@@ -414,21 +436,26 @@ def handle_reset_round():
 
 @app.route('/admin/export/<secret_key>')
 def export_data(secret_key):
+    # Change this to a long, random password!
     if secret_key != 'none-shall-pass-unless-their-names-starts-with-an-I':
         return "Not authorized", 403
 
+    # Use StringIO to create a file in memory
     si = StringIO()
     cw = csv.writer(si)
-
+    
+    # Get all plays from the database, ordered by time
     plays = Play.query.order_by(Play.id).all()
-
+    
+    # Write Header Row
     header = [
         'id', 'game_session_id', 'round_number', 'set_number', 
         'play_number_in_round', 'player_sid', 'value_played', 
         'time_since_previous', 'was_mistake', 'observer_input'
     ]
     cw.writerow(header)
-
+    
+    # Write Data Rows
     for play in plays:
         cw.writerow([
             play.id, play.game_session_id, play.round_number, 
@@ -436,10 +463,12 @@ def export_data(secret_key):
             play.value_played, play.time_since_previous, play.was_mistake,
             play.observer_input
         ])
-
+    
+    # Format as a downloadable file
     output = si.getvalue()
     return Response(
         output,
         mimetype="text/csv",
         headers={"Content-disposition":
                  "attachment; filename=game_export.csv"})
+
