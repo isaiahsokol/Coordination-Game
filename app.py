@@ -192,8 +192,8 @@ def handle_play_number(data):
     if state['game_status'] != 'running': 
         return
     
-    actor_hand = state['hands'][actor_sid].copy()
-    observer_hand = state['hands'][observer_sid].copy()
+    actor_hand = state['hands'][actor_sid]
+    observer_hand = state['hands'][observer_sid]
     if not actor_hand or value not in actor_hand: 
         return
 
@@ -208,11 +208,11 @@ def handle_play_number(data):
         was_mistake = True
         state['mistake_count'] += 1
 
-        for card in observer_hand:
+        for card in observer_hand.copy():
             if card < value:
                 play_obvious_card(card, observer_sid)
         
-        for card in actor_hand:
+        for card in actor_hand.copy():
             if card < value:
                 play_obvious_card(card, actor_sid)
 
@@ -223,13 +223,13 @@ def handle_play_number(data):
         'time_played': play_time
     }
     state['all_played_list'].append(play_data)
-    state['hands'][actor_sid].remove(value)
+    actor_hand.remove(value)
 
-    if len(state['hands'][actor_sid]) == 0:
-        for card in observer_hand:
+    if len(actor_hand) == 0:
+        for card in observer_hand.copy():
             play_obvious_card(card, observer_sid)
-    if len(state['hands'][observer_sid]) == 0:
-        for card in actor_hand:
+    if len(observer_hand) == 0:
+        for card in actor_hand.copy():
             play_obvious_card(card, actor_sid)
 
     state['game_status'] = 'waiting_for_input'
@@ -249,7 +249,6 @@ def handle_play_number(data):
             'value': value,
             'correct_value': true_min
         }, room=room_code)
-
 
 def play_obvious_card(value, player_sid):
     room_code = get_room_code_for_sid(player_sid)
