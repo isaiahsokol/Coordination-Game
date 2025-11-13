@@ -223,12 +223,12 @@ def handle_play_number(data):
         'time_played': play_time
     }
     state['all_played_list'].append(play_data)
-    actor_hand.remove(value)
+    state['hands'][actor_sid].remove(value)
 
-    if len(actor_hand) == 0:
+    if len(state['hands'][actor_sid]) == 0:
         for card in observer_hand:
             play_obvious_card(card, observer_sid)
-    if len(observer_hand) == 0:
+    if len(state['hands'][observer_sid]) == 0:
         for card in actor_hand:
             play_obvious_card(card, actor_sid)
 
@@ -249,6 +249,7 @@ def handle_play_number(data):
             'value': value,
             'correct_value': true_min
         }, room=room_code)
+
 
 def play_obvious_card(value, player_sid):
     room_code = get_room_code_for_sid(player_sid)
