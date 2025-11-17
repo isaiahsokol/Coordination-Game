@@ -140,7 +140,7 @@ def start_new_round(room_code, round_num):
         
     state = room['game_state']
 
-    set_num = 2 if round_num > 5 else 1
+    set_num = 2 if round_num > 3 else 1
     player1_sid = room['players'][0]
     player2_sid = room['players'][1]
     
@@ -332,7 +332,7 @@ def handle_submit_input(data):
                 'start_counter': False
             }, room=player_sid)
         
-        if state['round_number'] >= 10:
+        if state['round_number'] >= 6:
             print(f"GAME OVER for room {room_code}. Committing data.")
             
             try:
